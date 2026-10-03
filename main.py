@@ -107,8 +107,6 @@ def add_departments():
         db.commit()
 
     db.close()
-
-
 add_departments()
 
 
@@ -182,8 +180,6 @@ def add_doctors():
         db.commit()
 
     db.close()
-
-
 add_doctors()
 
 
@@ -196,10 +192,9 @@ def home(db: Session = Depends(get_db)):
     }
 
 @app.post("/patient")
-def create_patient(id: int, patName: str, patAge: int,patPhone :str, patEmail: str, db: Session = Depends(get_db)):
+def create_patient(patName: str, patAge: int,patPhone :str, patEmail: str, db: Session = Depends(get_db)):
     patient =  Patient(
-        id=id,
-        patName=patName,
+        patName = patName,
         patAge = patAge,
         patPhone = patPhone,
         patEmail = patEmail
@@ -212,4 +207,93 @@ def create_patient(id: int, patName: str, patAge: int,patPhone :str, patEmail: s
     return{
         "message":"Patient added succesfully",
         "data" : patient
+    }
+
+@app.get("/patient")
+def get_patient(db: Session = Depends(get_db)):
+    patient = db.query(Patient).all()
+
+    return {
+        "data": patient
+    }
+
+@app.get("/patient/{patId}")
+def get_patient(patId: int, db: Session = Depends(get_db)):
+    patient = db.query(Patient).filter(Patient.id == patId).first()
+
+    return {
+        "data": patient
+    }
+    
+
+@app.get("/doctor")
+def get_doctor(db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).all()
+
+    return {
+        "data": doctor
+    }
+
+@app.get("/doctor/{docId}")
+def get_doctor(docId: int, db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).filter(Doctor.id == docId).first()
+
+    return {
+        "data": doctor
+    }
+
+@app.post("/appointment")
+def create_appointment(patId: int, docId: int, problem: str, fees: int, resolutionStatus: str, db: Session = Depends(get_db)):
+
+    patient = db.query(Patient).filter(Patient.id == patId).first()
+    if patient is None:
+        return {
+            "message" : "Patient not found"
+        }
+
+    doctor = db.query(Doctor).filter(Doctor.id == docId).first()
+    if doctor is None:
+        return {
+            "message" : "Doctor not found"
+        }
+
+    if doctor.docStatus != "Available":
+        return{
+            "message" : "Appointment can't be booked",
+            "reason" : f"{doctor.docName} is currently {doctor.docStatus}"
+        }
+
+    appointment = Appointment(
+        patId = patId,
+        docId = docId,
+        problem = problem,
+        fees = fees,
+       resolutionStatus = resolutionStatus
+    )
+    
+    db.add(appointment)
+    db.commit()
+    db.refresh(appointment)
+
+    return {
+        "message" : "Appointment booked succesfully",
+        "data" : appointment
+    }
+
+@app.put("/doctor")
+def update_docStatus(docId: int, docStatus = str, db: Session = Depends(get_db)):
+    doctor = db.query(Doctor).filter(Doctor.id == docId).first() 
+    if doctor is None: 
+        return { 
+            "message": "Doctor not found"
+        } 
+    
+    doctor.docStatus = docStatus 
+    
+    db.commit() 
+    db.refresh(doctor) 
+    
+    return { 
+        "message": "Status updated successfully", 
+        "data": doctor 
     }
