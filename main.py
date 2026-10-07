@@ -1,10 +1,19 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
+from fastapi.security import HTTPBearer
+from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
 app = FastAPI()
 
 DATABASE_URL = "sqlite:///./hospital.db"
+
+SECRET_KEY = "mysecretkey"
+
+ALGORITHM = "HS256"
+
+security = HTTPBearer()
 
 engine = create_engine(
     DATABASE_URL,
@@ -16,6 +25,128 @@ SessionLocal = sessionmaker(bind=engine)
 # Create a base class for all SQLAlchemy database models
 Base = declarative_base()
 
+# -------------------- CREATE ACCESS TOKEN --------------------
+#1. Create a function to generate a JWT token.
+#2. The function should take a dictionary as input and return a JWT token.
+#3. The token should have an expiry time of 30 minutes.
+#4. Use the jwt.encode() method to generate the token.
+#5. Use the SECRET_KEY and ALGORITHM to encode the token.
+#6. Return the token to the user.
+def create_token(username: str):
+    expire = datetime.now(timezone.utc) + timedelta(minutes=30)
+    
+    payload = ({
+        "sub": username,
+        "exp": expire
+        })
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    
+    return token
+    
+# -------------------- LOGIN API --------------------
+#1. Create a /login API.
+#2. Take username and password from the user.
+#3. Check if the username is admin and password is 12345.
+#4. If both are correct, set the token expiry time to 30 minutes.
+#5. Generate a JWT token using the jose library.
+#6. Return the token to the user.
+#7. If the username or password is wrong, show a 401 Unauthorized error.
+#8. Display the message "Invalid username or password" if the login details are incorrect.
+@app.post("/login")
+def login(username:str, password:str):
+    if username == "admin" and password == "12345":
+        token = create_token(username)
+        payload = {
+            "message": "Login successful",
+            "access_token": token,
+            "token_type": "bearer"
+        }
+        return(payload)
+        
+    raise HTTPException(
+        status_code=401, 
+        detail="Invalid username or password"
+    )
+    
+# -------------------------
+# JWT Middleware
+# -------------------------
+@app.middleware("http")
+async def verify_token(request: Request, call_next):
+    
+    public_paths = [
+        "/login",
+        "/docs",
+        "/openapi.json",
+        "/redoc"
+    ]
+
+    if request.url.path in public_paths:
+        return await call_next(request)
+
+    auth_header = request.headers.get("Authorization")
+    print(f"auth_header: {auth_header}")  
+    if not auth_header:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header missing"
+        )
+    
+    # Expected:
+    # Authorization: Bearer <token>
+
+    parts = auth_header.split(" ")
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header"
+        )
+    
+    token = parts[1]
+    print(f"parts: {parts}")
+    print(f"token: {token}")
+    
+    try:
+
+        # Verify JWT
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        
+        username = payload.get("sub")
+        print(f"payload: {payload}")
+
+        if not username:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+
+        # Store username in request
+        request.state.username = username
+
+    except JWTError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    return await call_next(request)
+
+# ------------------------- Protected API -------------------------
+@app.get("/users")
+def users(request: Request):
+
+    username = request.state.username
+
+    return {
+        "message": "Authorized",
+        "username": username
+    }
 
 # -------------------- PATIENT --------------------
 
@@ -61,7 +192,6 @@ class PatientDoctor(Base):
     id = Column(Integer, primary_key=True, index=True)
     patId = Column(Integer, ForeignKey("patient.id"))
     docId = Column(Integer, ForeignKey("doctor.id"))
-
 
 # -------------------- DEPARTMENT --------------------
 
@@ -210,9 +340,12 @@ def create_patient(patName: str, patAge: int,patPhone :str, patEmail: str, db: S
     }
 
 @app.get("/patient")
-def get_patient(db: Session = Depends(get_db)):
-    patient = db.query(Patient).all()
+async def get_patient(request: Request, db: Session = Depends(get_db),token: str = Depends(security)):
 
+    patient = db.query(Patient).all()
+    
+    username = request.state.username
+    print(f"token: {token}")
     return {
         "data": patient
     }
