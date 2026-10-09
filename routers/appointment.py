@@ -107,6 +107,7 @@ def update_appointment(
         )
 
     existing_appointment.resolutionStatus = appointment.resolutionStatus
+    existing_appointment.fees = appointment.fees
 
     db.commit()
     db.refresh(existing_appointment)
@@ -136,36 +137,3 @@ def delete_appointment(
     return {
         "message": "Appointment deleted successfully"
     }
-
-#Patient Appointment History API
-@router.get("/patient/{patId}/appointments")
-def get_patient_appointments(
-    patId: int,
-    db: Session = Depends(get_db)
-):
-    appointments = db.query(Appointment).filter(
-        Appointment.patId == patId
-    ).all()
-
-    result = []
-
-    for appointment in appointments:
-        doctor = db.query(Doctor).filter(
-            Doctor.id == appointment.docId
-        ).first()
-
-        department = db.query(Department).filter(
-            Department.id == doctor.deptId
-        ).first()
-
-        result.append({
-            "appointmentId": appointment.id,
-            "doctorId": appointment.docId,
-            "doctorName": doctor.docName,
-            "departmentName": department.deptName,
-            "problem": appointment.problem,
-            "fees": appointment.fees,
-            "resolutionStatus": appointment.resolutionStatus
-        })
-
-    return result

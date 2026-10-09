@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from database.database import SessionLocal
 from models.patient import Patient
 from schemas.patient import PatientCreate
+from models.appointment import Appointment
+from models.doctor import Doctor
+from models.department import Department
 
 
 router = APIRouter()
@@ -48,11 +51,11 @@ def get_patients(
 
 # GET PATIENT BY ID
 @router.get("/patient/{patId}")
-def get_patient(
-    patId: int,
-    db: Session = Depends(get_db)
-):
-    patient = db.query(Patient).filter(Patient.id == patId).first()
+def get_patient(patId: int, db: Session = Depends(get_db)):
+
+    patient = db.query(Patient).filter(
+        Patient.id == patId
+    ).first()
 
     if not patient:
         raise HTTPException(
@@ -60,7 +63,40 @@ def get_patient(
             detail="Patient not found"
         )
 
-    return patient
+    appointments = db.query(Appointment).filter(
+        Appointment.patId == patId
+    ).all()
+
+    appointment_history = []
+
+    for appointment in appointments:
+
+        doctor = db.query(Doctor).filter(
+            Doctor.id == appointment.docId
+        ).first()
+
+        department = db.query(Department).filter(
+            Department.id == doctor.deptId
+        ).first()
+
+        appointment_history.append({
+            "appointmentId": appointment.id,
+            "doctorId": appointment.docId,
+            "doctorName": doctor.docName,
+            "departmentName": department.deptName,
+            "problem": appointment.problem,
+            "fees": appointment.fees,
+            "resolutionStatus": appointment.resolutionStatus
+        })
+
+    return {
+        "id": patient.id,
+        "patName": patient.patName,
+        "patAge": patient.patAge,
+        "patPhone": patient.patPhone,
+        "patEmail": patient.patEmail,
+        "appointments": appointment_history
+    }
 
 #UPDATE PATIENT
 @router.put("/patient/{patId}")

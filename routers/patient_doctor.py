@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database.database import SessionLocal
-from main2 import Appointment
+from models.appointment import Appointment
 from models.patient_doctor import PatientDoctor
 from schemas.patient_doctor import PatientDoctorCreate
 from models.patient import Patient
