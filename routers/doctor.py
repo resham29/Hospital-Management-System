@@ -5,9 +5,7 @@ from database.database import SessionLocal
 from models.doctor import Doctor
 from schemas.doctor import DoctorCreate
 
-
 router = APIRouter()
-
 
 def get_db():
     db = SessionLocal()

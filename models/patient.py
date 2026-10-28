@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from database.database import Base
 
-
 class Patient(Base):
     __tablename__ = "patient"
 
@@ -10,3 +9,4 @@ class Patient(Base):
     patAge = Column(Integer)
     patPhone = Column(String)
     patEmail = Column(String, unique=True)
+    

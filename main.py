@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import os
+import cloudinary
 
 from database.database import Base, engine
 from routers import patient, doctor, department, appointment, patient_doctor, auth
@@ -10,6 +12,15 @@ from models import patient_doctor as patient_doctor_model
 from auth.middleware import verify_token
 from fastapi.security import HTTPBearer
 from fastapi.openapi.utils import get_openapi
+from dotenv import load_dotenv
+
+load_dotenv()
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,19 +28,22 @@ app = FastAPI()
 
 security = HTTPBearer()
 
+#In FastAPI, app.include_router() is a method used to plug isolated groups of routes (created via APIRouter) into the main application instance.
+app.middleware("http")(verify_token)
 app.include_router(patient.router)
 app.include_router(doctor.router)   
 app.include_router(department.router)
 app.include_router(appointment.router)
 app.include_router(patient_doctor.router)
 app.include_router(auth.router)
-app.middleware("http")(verify_token)
 
-
+#why is this function needed for the openapi schema and how does it work
 def custom_openapi():
+    #checking if already created
     if app.openapi_schema:
         return app.openapi_schema
 
+    #
     openapi_schema = get_openapi(
         title="Hospital Management API",
         version="1.0.0",
