@@ -37,13 +37,10 @@ app.include_router(appointment.router)
 app.include_router(patient_doctor.router)
 app.include_router(auth.router)
 
-#why is this function needed for the openapi schema and how does it work
 def custom_openapi():
-    #checking if already created
     if app.openapi_schema:
         return app.openapi_schema
 
-    #
     openapi_schema = get_openapi(
         title="Hospital Management API",
         version="1.0.0",
@@ -67,6 +64,5 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
 
     return app.openapi_schema
-
 
 app.openapi = custom_openapi
